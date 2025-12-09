@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# System Files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Script Generated Files (Reports & Cleanup Scripts)
+duplicates_report.txt
+move_duplicates.sh
+move_duplicates.bat
+clean_dirs.sh
+clean_dirs.bat
+
+# Trash Directory created by script
+_doubles_trash/
