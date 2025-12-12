@@ -15,3 +15,7 @@ clean_dirs.bat
 
 # Trash Directory created by script
 _doubles_trash/
+_Orphaned_LRC
+
+move_duplicates.sh
+move_orphans.sh
