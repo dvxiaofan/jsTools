@@ -17,5 +17,9 @@ clean_dirs.bat
 _doubles_trash/
 _Orphaned_LRC
 
+# User Data & Temp Files
+data/
+temp_scripts_backup/
+
 move_duplicates.sh
 move_orphans.sh
