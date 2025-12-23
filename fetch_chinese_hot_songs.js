@@ -4,15 +4,23 @@ const path = require('path');
 
 const regions = ['cn', 'tw', 'hk', 'sg', 'my']; // 华语主要地区
 const limit = 100; // API 单次最大通常为 100
-const outputFile = path.join(__dirname, 'top_chinese_songs_500.txt');
+const outputFile = path.join(__dirname, 'comprehensive_classic_songs.txt');
 
-// 补充一些经典华语歌手，用于 RSS 无法凑齐 500 首时补充
+// 补充经典华语歌手 (涵盖老中青三代，以及“一人一首成名曲”风格歌手)
 const backupArtists = [
+    // --- 流行天王天后 ---
     '周杰伦', '陈奕迅', '林俊杰', '五月天', '孙燕姿', '蔡依林', '王力宏', '陶喆', '张学友', '刘德华',
     '王菲', '李荣浩', '邓紫棋', '薛之谦', '毛不易', '张惠妹', '田馥甄', '苏打绿', '莫文蔚', '张韶涵',
     '杨丞琳', '王心凌', '伍佰', '李宗盛', '罗大佑', '许巍', '朴树', '汪峰', '那英', '萧亚轩',
     '林宥嘉', '萧敬腾', '张国荣', '梅艳芳', 'Beyond', '陈百强', '谭咏麟', '李克勤', '容祖儿', 'Twins',
-    '徐佳莹', '周深', '华晨宇', '任贤齐', '刘若英', '梁静茹', '许嵩', '汪苏泷', '凤凰传奇', '筷子兄弟'
+    '徐佳莹', '周深', '华晨宇', '任贤齐', '刘若英', '梁静茹', '许嵩', '汪苏泷', '凤凰传奇', '筷子兄弟',
+
+    // --- 经典老歌/情歌王子/民谣 (一人一首成名曲常客) ---
+    '郑源', '谢霆锋', 'F.I.R.飞儿乐团', '高胜美', '姜育恒', '祁隆', '刘欢', '邰正宵', '周华健', '黄品源',
+    '阿杜', '黄小琥', '费翔', '张信哲', '韩红', '杨宗纬', '陈慧娴', '周传雄', '张柏芝', '草蜢',
+    '伍思凯', '无印良品', '辛晓琪', '迪克牛仔', '林志炫', '刀郎', '杨千嬅', '李圣杰', '张宇', '赵传',
+    '童安格', '齐秦', '王杰', '郑少秋', '罗文', '苏芮', '潘美辰', '赵咏华', '许茹芸', '孟庭苇',
+    '陈淑桦', '叶倩文', '林子祥', '张雨生', '优客李林', '动力火车', '信乐团', 'S.H.E', '飞轮海', 'F4'
 ];
 
 function fetchUrl(url) {
@@ -76,7 +84,7 @@ async function run() {
     console.log(`📊 RSS 获取去重后数量: ${allSongs.size}`);
 
     // 2. 如果不足 500 首，或者为了丰富度，补充经典歌手热歌
-    if (allSongs.size < 600) { // 目标是生成 500，多抓点备选
+    if (allSongs.size < 2000) { // 目标是生成更多，多抓点备选
         console.log('⚡️ 补充经典歌手热门歌曲...');
         for (const artist of backupArtists) {
             const songs = await fetchArtistTopSongs(artist);
@@ -100,25 +108,31 @@ async function run() {
     // 但 RSS 榜单里肯定混杂了欧美流行 (Taylor Swift, etc.)
     // 我们需要尽量保留华语。
     // 策略：优先保留 backupArtists 里的歌手，以及 RSS 里名字包含中文的歌手/歌曲
-    
+
     const chineseRegex = /[\u4e00-\u9fa5]/;
-    
+
     let filteredSongs = Array.from(allSongs.values()).filter(song => {
+        // 0. 过滤掉 Artist 名字过长（通常是群星合唱）
+        if (song.artist.length > 50) return false;
+
+        // 检查是否有特殊乱码字符 (Unicode Replacement Character)
+        if (song.artist.includes('\ufffd') || song.name.includes('\ufffd')) return false;
+
         // 1. 歌手名或歌名包含中文 -> 保留
         if (chineseRegex.test(song.artist) || chineseRegex.test(song.name)) return true;
         // 2. 歌手在我们的白名单里 -> 保留 (处理像 S.H.E, JJ Lin 这种可能没中文名的)
         if (backupArtists.some(a => song.artist.includes(a))) return true;
-        
+
         return false; // 剔除纯英文歌 (大概率是欧美日韩)
     });
 
     console.log(`🧹 过滤非华语歌曲后数量: ${filteredSongs.length}`);
 
-    // 4. 截取前 500
-    const finalTop500 = filteredSongs.slice(0, 500);
+    // 4. 截取前 1000
+    const finalTop500 = filteredSongs.slice(0, 1000);
 
     // 5. 写入文件
-    const fileContent = finalTop500.map((s, index) => 
+    const fileContent = finalTop500.map((s, index) =>
         `${(index + 1).toString().padStart(3, '0')}. ${s.artist} - ${s.name}`
     ).join('\n');
 

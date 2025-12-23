@@ -1,7 +1,14 @@
+/**
+ * 脚本名称: Find Empty Dirs (查找空文件夹)
+ * 功能描述: 递归查找空文件夹，或者只包含 cover.jpg 的文件夹。
+ * 使用方法: 
+ *    node find_empty_dirs.js [目标目录]
+ */
+
 const fs = require('fs');
 const path = require('path');
 
-const musicDir = '/Volumes/Music';
+const musicDir = process.argv[2] || '/Volumes/Music';
 
 function isCover(filename) {
     return filename.toLowerCase() === 'cover.jpg';
