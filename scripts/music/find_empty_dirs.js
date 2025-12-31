@@ -69,23 +69,15 @@ function checkDirStatus(dir) {
 function checkDirDeep(dir) {
     const status = checkDirStatus(dir);
 
-    // 有非隐藏文件，不是空目录
-    if (status.files.length > 0) {
-        return {
-            effectivelyEmpty: false,
-            hasAudioDeep: status.hasAudio
-        };
-    }
-
     // 没有子目录且没有文件，是空目录
-    if (status.dirs.length === 0) {
+    if (status.files.length === 0 && status.dirs.length === 0) {
         return {
             effectivelyEmpty: true,
             hasAudioDeep: false
         };
     }
 
-    // 有子目录，递归检查
+    // 递归检查所有子目录
     let allSubdirsEmpty = true;
     let anySubdirHasAudio = false;
 
@@ -99,6 +91,16 @@ function checkDirDeep(dir) {
         }
     }
 
+    // 有文件时，不是空目录
+    if (status.files.length > 0) {
+        return {
+            effectivelyEmpty: false,
+            // 当前目录有音频 或 子目录有音频
+            hasAudioDeep: status.hasAudio || anySubdirHasAudio
+        };
+    }
+
+    // 只有子目录，没有文件
     return {
         effectivelyEmpty: allSubdirsEmpty,
         hasAudioDeep: anySubdirHasAudio
