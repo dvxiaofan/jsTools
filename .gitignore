@@ -6,20 +6,31 @@ node_modules/
 Thumbs.db
 Desktop.ini
 
-# Script Generated Files (Reports & Cleanup Scripts)
+# IDE & Editor
+.vscode/
+.idea/
+
+# Claude Code
+.claude/
+
+# Script Generated Files
+_*_temp/
+_cleanup_*.sh
+_cleanup_*.bat
+_rename_*.sh
+_rename_*.bat
+*.report.txt
+
+# Legacy (can be removed)
 duplicates_report.txt
 move_duplicates.sh
 move_duplicates.bat
 clean_dirs.sh
 clean_dirs.bat
-
-# Trash Directory created by script
+move_orphans.sh
 _doubles_trash/
-_Orphaned_LRC
+_Orphaned_LRC/
 
-# User Data & Temp Files
+# User Data
 data/
 temp_scripts_backup/
-
-move_duplicates.sh
-move_orphans.sh
