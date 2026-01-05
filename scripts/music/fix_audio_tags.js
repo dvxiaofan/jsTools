@@ -10,23 +10,26 @@
  *    - 智能解析文件名（支持多种命名格式）
  *    - 只补缺的，不覆盖已有标签
  *    - 自动识别占位符标签（如 "track", "album"）
- *    - 预览模式，确认后再执行
+ *    - 交互式确认，检查后直接执行
  * 使用方法:
  *    node fix_audio_tags.js [目标目录] [选项]
  * 选项:
- *    --dry-run    预览模式，不实际修改文件（默认）
- *    --apply      执行模式，实际写入标签
+ *    --apply      直接执行模式（跳过确认）
  *    --no-cover   不补全封面
+ *    --with-lrc   同时下载 .lrc 歌词文件
  *    --limit N    只处理前 N 个文件
+ *    -y           自动确认执行
  * 示例:
- *    node fix_audio_tags.js "/path/to/music"              # 预览
- *    node fix_audio_tags.js "/path/to/music" --apply      # 执行
+ *    node fix_audio_tags.js "/path/to/music"              # 检查并询问
+ *    node fix_audio_tags.js "/path/to/music" --apply      # 直接执行
+ *    node fix_audio_tags.js "/path/to/music" --with-lrc   # 同时下载歌词
  */
 
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const readline = require('readline');
 const { execSync, spawnSync } = require('child_process');
 const mm = require('music-metadata');
 
@@ -34,19 +37,40 @@ const mm = require('music-metadata');
 // 1. 配置
 // ---------------------------------------------------------
 
-const AUDIO_EXTENSIONS = /\.(mp3|m4a|flac|wav|ogg|aac|ape|wma)$/i;
+const AUDIO_EXTENSIONS = /\.(mp3|m4a|flac|wav|ogg|aac|ape|wma|dff|dsf)$/i;
 
 // 解析命令行参数
 const args = process.argv.slice(2);
-const targetDir = args.find(a => !a.startsWith('--')) || process.cwd();
-const isDryRun = !args.includes('--apply');
+const targetDir = args.find(a => !a.startsWith('--') && !a.startsWith('-')) || process.cwd();
+const forceApply = args.includes('--apply');
 const skipCover = args.includes('--no-cover');
+const withLrc = args.includes('--with-lrc');
+const autoYes = args.includes('-y');
 const limitArg = args.find(a => a.startsWith('--limit'));
 const limit = limitArg ? parseInt(args[args.indexOf(limitArg) + 1]) || 0 : 0;
 
 // ---------------------------------------------------------
 // 2. 工具函数
 // ---------------------------------------------------------
+
+/**
+ * 创建 readline 接口
+ */
+function createRL() {
+    return readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+}
+
+/**
+ * 异步询问用户
+ */
+function ask(rl, question) {
+    return new Promise(resolve => {
+        rl.question(question, answer => resolve(answer.trim().toLowerCase()));
+    });
+}
 
 /**
  * 递归查找目录下的所有音频文件
@@ -113,6 +137,25 @@ async function parseExistingTags(filePath) {
     } catch (e) {
         return { error: e.message };
     }
+}
+
+/**
+ * 检查是否有同名 .lrc 文件
+ */
+function hasLrcFile(audioPath) {
+    const dir = path.dirname(audioPath);
+    const baseName = path.basename(audioPath, path.extname(audioPath));
+    const lrcPath = path.join(dir, `${baseName}.lrc`);
+    return fs.existsSync(lrcPath);
+}
+
+/**
+ * 获取 .lrc 文件路径
+ */
+function getLrcPath(audioPath) {
+    const dir = path.dirname(audioPath);
+    const baseName = path.basename(audioPath, path.extname(audioPath));
+    return path.join(dir, `${baseName}.lrc`);
 }
 
 /**
@@ -548,13 +591,97 @@ function writeTagsWithFFmpeg(filePath, tags, coverPath = null) {
 }
 
 // ---------------------------------------------------------
-// 3. 主逻辑
+// 3. 歌词相关函数
+// ---------------------------------------------------------
+
+/**
+ * QQ音乐获取歌词
+ */
+async function getQQLyrics(songmid) {
+    try {
+        const url = `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${songmid}&format=json&nobase64=1`;
+        const response = await httpGet(url, {
+            'Referer': 'https://y.qq.com/'
+        });
+
+        let data;
+        if (response.startsWith('MusicJsonCallback')) {
+            const jsonStr = response.replace(/^MusicJsonCallback\(/, '').replace(/\)$/, '');
+            data = JSON.parse(jsonStr);
+        } else {
+            data = JSON.parse(response);
+        }
+
+        if (data.lyric) {
+            let lyric = data.lyric;
+            if (!lyric.startsWith('[')) {
+                try {
+                    lyric = Buffer.from(lyric, 'base64').toString('utf-8');
+                } catch (e) {}
+            }
+            return lyric;
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * 网易云获取歌词
+ */
+async function getNeteaseLyrics(songId) {
+    try {
+        const url = `https://music.163.com/api/song/lyric?id=${songId}&lv=1&tv=1`;
+        const response = await httpGet(url, { 'Referer': 'https://music.163.com' });
+        const data = JSON.parse(response);
+
+        if (data.lrc && data.lrc.lyric) {
+            return data.lrc.lyric;
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * 验证歌词有效性
+ */
+function isValidLyric(lyric) {
+    if (!lyric) return false;
+    if (!lyric.includes('[')) return false;
+    if (lyric.includes('纯音乐') && lyric.length < 100) return false;
+    if (lyric.includes('此歌曲为没有填词的纯音乐')) return false;
+    const lines = lyric.split('\n').filter(l => l.match(/\[\d+:\d+/));
+    return lines.length >= 3;
+}
+
+/**
+ * 清理歌词格式
+ */
+function cleanLyric(lyric) {
+    if (!lyric) return null;
+    lyric = lyric
+        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(code))
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'");
+    lyric = lyric.replace(/\n{3,}/g, '\n\n');
+    return lyric.trim();
+}
+
+// ---------------------------------------------------------
+// 4. 主逻辑
 // ---------------------------------------------------------
 
 async function run() {
     console.log(`\n🔧 音频标签补全工具`);
     console.log(`📂 扫描目录: ${targetDir}`);
-    console.log(`📋 模式: ${isDryRun ? '预览模式 (--dry-run)' : '执行模式 (--apply)'}`);
+    if (withLrc) console.log(`📝 同时下载: .lrc 歌词文件`);
     console.log('─'.repeat(60));
 
     if (!fs.existsSync(targetDir)) {
@@ -604,10 +731,11 @@ async function run() {
             title: !existing.title,
             artist: !existing.artist,
             album: !existing.album,
-            cover: !existing.hasCover && !skipCover
+            cover: !existing.hasCover && !skipCover,
+            lrc: withLrc && !hasLrcFile(file)
         };
 
-        const hasMissing = missing.title || missing.artist || missing.album || missing.cover;
+        const hasMissing = missing.title || missing.artist || missing.album || missing.cover || missing.lrc;
 
         if (hasMissing) {
             const parsed = parseFileName(file);
@@ -631,7 +759,7 @@ async function run() {
         return;
     }
 
-    console.log(`📋 发现 ${tasks.length} 个文件需要补全标签`);
+    console.log(`📋 发现 ${tasks.length} 个文件需要处理`);
     console.log('\n⏳ 正在搜索歌曲信息...');
 
     // 搜索并匹配
@@ -680,15 +808,25 @@ async function run() {
                 if (!existing.year && bestMatch.year) updates.year = bestMatch.year;
                 if (!existing.genre && bestMatch.genre) updates.genre = bestMatch.genre;
 
-                plans.push({
+                const plan = {
                     file,
                     existing,
+                    missing,
                     updates,
                     coverUrl: missing.cover ? bestMatch.coverUrl : null,
                     matchScore: bestScore,
                     matchSource: bestMatch.source,
-                    matchInfo: `${bestMatch.artist} - ${bestMatch.title}`
-                });
+                    matchInfo: `${bestMatch.artist} - ${bestMatch.title}`,
+                    bestMatch
+                };
+
+                // 如果需要下载歌词
+                if (missing.lrc) {
+                    plan.needLrc = true;
+                    plan.lrcPath = getLrcPath(file);
+                }
+
+                plans.push(plan);
             }
         }
 
@@ -724,6 +862,7 @@ async function run() {
         if (plan.updates.year) updates.push(`年份: ${plan.updates.year}`);
         if (plan.updates.genre) updates.push(`流派: "${plan.updates.genre}"`);
         if (plan.coverUrl) updates.push(`封面: 将下载`);
+        if (plan.needLrc) updates.push(`歌词: 将下载 .lrc`);
 
         if (updates.length > 0) {
             console.log(`   📝 补全: ${updates.join(', ')}`);
@@ -731,23 +870,34 @@ async function run() {
     });
 
     // ---------------------------------------------------------
-    // 执行或提示
+    // 询问确认或直接执行
     // ---------------------------------------------------------
     console.log('\n' + '═'.repeat(60));
-    console.log(`📊 统计: 将补全 ${plans.length} 个文件`);
+    console.log(`📊 统计: 将处理 ${plans.length} 个文件`);
     console.log('═'.repeat(60));
 
-    if (isDryRun) {
-        console.log('\n💡 这是预览模式，未实际修改文件');
-        console.log('   确认无误后，执行以下命令应用更改:');
-        console.log(`   node fix_audio_tags.js "${targetDir}" --apply`);
-        return;
+    let shouldExecute = forceApply || autoYes;
+
+    if (!shouldExecute) {
+        const rl = createRL();
+        const answer = await ask(rl, '\n是否执行以上操作? [Y/n]: ');
+        rl.close();
+
+        shouldExecute = answer === '' || answer === 'y' || answer === 'yes';
+
+        if (!shouldExecute) {
+            console.log('\n❌ 已取消操作');
+            return;
+        }
     }
 
+    // ---------------------------------------------------------
     // 执行补全
-    console.log('\n⏳ 正在写入标签...');
+    // ---------------------------------------------------------
+    console.log('\n⏳ 正在处理...');
     let successCount = 0;
     let failCount = 0;
+    let lrcCount = 0;
 
     for (let i = 0; i < plans.length; i++) {
         const plan = plans[i];
@@ -766,15 +916,36 @@ async function run() {
             }
         }
 
-        // 写入标签
-        const result = writeTagsWithFFmpeg(plan.file, plan.updates, coverPath);
+        // 写入标签（如果有更新）
+        let tagSuccess = true;
+        if (Object.keys(plan.updates).length > 0 || coverPath) {
+            const result = writeTagsWithFFmpeg(plan.file, plan.updates, coverPath);
+            tagSuccess = result.success;
+        }
 
         // 清理临时封面
         if (coverPath && fs.existsSync(coverPath)) {
             fs.unlinkSync(coverPath);
         }
 
-        if (result.success) {
+        // 下载歌词（如果需要）
+        if (plan.needLrc && plan.bestMatch) {
+            try {
+                let lyric = null;
+                if (plan.bestMatch.source === 'QQ音乐' && plan.bestMatch.songmid) {
+                    lyric = await getQQLyrics(plan.bestMatch.songmid);
+                } else if (plan.bestMatch.source === '网易云' && plan.bestMatch.songId) {
+                    lyric = await getNeteaseLyrics(plan.bestMatch.songId);
+                }
+
+                if (isValidLyric(lyric)) {
+                    fs.writeFileSync(plan.lrcPath, cleanLyric(lyric), 'utf-8');
+                    lrcCount++;
+                }
+            } catch (e) {}
+        }
+
+        if (tagSuccess) {
             successCount++;
         } else {
             failCount++;
@@ -783,9 +954,12 @@ async function run() {
     }
 
     console.log('\n\n' + '═'.repeat(60));
-    console.log('✅ 补全完成!');
+    console.log('✅ 处理完成!');
     console.log('═'.repeat(60));
-    console.log(`   成功: ${successCount} 个文件`);
+    console.log(`   标签补全: ${successCount} 个文件`);
+    if (lrcCount > 0) {
+        console.log(`   歌词下载: ${lrcCount} 个文件`);
+    }
     if (failCount > 0) {
         console.log(`   失败: ${failCount} 个文件`);
     }

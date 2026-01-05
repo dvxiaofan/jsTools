@@ -119,18 +119,43 @@ node hot_songs.js --chart tw,hk,sg -n 100
 
 ---
 
-### 7. fix_audio_tags.js - 音频标签检测
+### 7. fix_audio_tags.js - 音频标签补全
 
-检测音频文件的标签完整性，包括封面、歌词等元数据。
+检测并补全音频文件的缺失标签，包括封面、标题、艺术家、专辑等元数据。
+
+**数据源**: QQ音乐、网易云音乐、iTunes
 
 ```bash
+# 交互式模式（默认）- 检查后询问是否执行
 node fix_audio_tags.js "/path/to/music"
+
+# 直接执行模式
+node fix_audio_tags.js "/path/to/music" --apply
+
+# 自动确认执行
+node fix_audio_tags.js "/path/to/music" -y
+
+# 同时下载 .lrc 歌词文件
+node fix_audio_tags.js "/path/to/music" -y --with-lrc
+
+# 不补全封面
+node fix_audio_tags.js "/path/to/music" --no-cover
 ```
 
-**检测项目**:
+**参数**:
+| 参数 | 说明 |
+|------|------|
+| `--apply` | 直接执行模式（跳过确认） |
+| `-y` | 自动确认执行 |
+| `--with-lrc` | 同时下载 .lrc 歌词文件 |
+| `--no-cover` | 不补全封面 |
+| `--limit N` | 只处理前 N 个文件 |
+
+**检测并补全项目**:
 - 内嵌封面图片
-- 内嵌歌词
-- 艺术家、专辑等基本标签
+- 标题、艺术家、专辑标签
+- 年份、流派信息
+- .lrc 歌词文件（需 --with-lrc）
 
 ---
 
@@ -203,21 +228,24 @@ node playlist_generator.js --auto-artist
 **数据源**: QQ音乐、网易云音乐
 
 ```bash
-# 预览模式（默认）
+# 交互式模式（默认）- 检查后询问是否执行
 node download_lyrics.js "/path/to/music"
 
-# 执行模式，实际下载
+# 直接执行模式
 node download_lyrics.js "/path/to/music" --apply
 
+# 自动确认执行
+node download_lyrics.js "/path/to/music" -y
+
 # 覆盖已有歌词
-node download_lyrics.js "/path/to/music" --apply --overwrite
+node download_lyrics.js "/path/to/music" -y --overwrite
 ```
 
 **参数**:
 | 参数 | 说明 |
 |------|------|
-| `--dry-run` | 预览模式，不实际下载（默认） |
-| `--apply` | 执行模式，实际下载歌词 |
+| `--apply` | 直接执行模式（跳过确认） |
+| `-y` | 自动确认执行 |
 | `--overwrite` | 覆盖已有的 .lrc 文件 |
 | `--limit N` | 只处理前 N 个文件 |
 
@@ -226,7 +254,8 @@ node download_lyrics.js "/path/to/music" --apply --overwrite
 2. 检测没有同名 .lrc 文件的音频
 3. 解析文件名提取歌曲名和艺术家
 4. 从 QQ音乐/网易云搜索匹配歌词
-5. 下载保存为同名 .lrc 文件
+5. 显示下载计划并询问确认
+6. 下载保存为同名 .lrc 文件
 
 ---
 

@@ -5,44 +5,65 @@
  *    - QQ音乐（优先，中文歌曲最准）
  *    - 网易云音乐
  * 特点:
- *    - 支持多种格式: MP3/FLAC/M4A/WAV/OGG/AAC
+ *    - 支持多种格式: MP3/FLAC/M4A/WAV/OGG/AAC/DFF/DSF
  *    - 智能解析文件名（支持多种命名格式）
  *    - 只下载缺失的，不覆盖已有歌词
- *    - 预览模式，确认后再执行
+ *    - 交互式确认，检查后直接执行
  * 使用方法:
  *    node download_lyrics.js [目标目录] [选项]
  * 选项:
- *    --dry-run    预览模式，不实际下载（默认）
- *    --apply      执行模式，实际下载歌词
+ *    --apply      直接执行模式（跳过确认）
  *    --overwrite  覆盖已有的 .lrc 文件
  *    --limit N    只处理前 N 个文件
+ *    -y           自动确认执行
  * 示例:
- *    node download_lyrics.js "/path/to/music"              # 预览
- *    node download_lyrics.js "/path/to/music" --apply      # 执行
+ *    node download_lyrics.js "/path/to/music"              # 检查并询问
+ *    node download_lyrics.js "/path/to/music" --apply      # 直接执行
  */
 
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const readline = require('readline');
 
 // ---------------------------------------------------------
 // 1. 配置
 // ---------------------------------------------------------
 
-const AUDIO_EXTENSIONS = /\.(mp3|m4a|flac|wav|ogg|aac|ape|wma)$/i;
+const AUDIO_EXTENSIONS = /\.(mp3|m4a|flac|wav|ogg|aac|ape|wma|dff|dsf)$/i;
 
 // 解析命令行参数
 const args = process.argv.slice(2);
-const targetDir = args.find(a => !a.startsWith('--')) || process.cwd();
-const isDryRun = !args.includes('--apply');
+const targetDir = args.find(a => !a.startsWith('--') && !a.startsWith('-')) || process.cwd();
+const forceApply = args.includes('--apply');
 const overwrite = args.includes('--overwrite');
+const autoYes = args.includes('-y');
 const limitArg = args.find(a => a.startsWith('--limit'));
 const limit = limitArg ? parseInt(args[args.indexOf(limitArg) + 1]) || 0 : 0;
 
 // ---------------------------------------------------------
 // 2. 工具函数
 // ---------------------------------------------------------
+
+/**
+ * 创建 readline 接口
+ */
+function createRL() {
+    return readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+}
+
+/**
+ * 异步询问用户
+ */
+function ask(rl, question) {
+    return new Promise(resolve => {
+        rl.question(question, answer => resolve(answer.trim().toLowerCase()));
+    });
+}
 
 /**
  * 递归查找目录下的所有音频文件
@@ -402,7 +423,6 @@ function cleanLyric(lyric) {
 async function run() {
     console.log(`\n🎵 歌词下载工具`);
     console.log(`📂 扫描目录: ${targetDir}`);
-    console.log(`📋 模式: ${isDryRun ? '预览模式 (--dry-run)' : '执行模式 (--apply)'}`);
     if (overwrite) console.log(`⚠️  覆盖模式: 将覆盖已有 .lrc 文件`);
     console.log('─'.repeat(60));
 
@@ -539,11 +559,20 @@ async function run() {
     console.log(`📊 统计: 将下载 ${plans.length} 个歌词文件`);
     console.log('═'.repeat(60));
 
-    if (isDryRun) {
-        console.log('\n💡 这是预览模式，未实际下载文件');
-        console.log('   确认无误后，执行以下命令应用更改:');
-        console.log(`   node download_lyrics.js "${targetDir}" --apply`);
-        return;
+    // 询问确认或直接执行
+    let shouldExecute = forceApply || autoYes;
+
+    if (!shouldExecute) {
+        const rl = createRL();
+        const answer = await ask(rl, '\n是否执行以上操作? [Y/n]: ');
+        rl.close();
+
+        shouldExecute = answer === '' || answer === 'y' || answer === 'yes';
+
+        if (!shouldExecute) {
+            console.log('\n❌ 已取消操作');
+            return;
+        }
     }
 
     // 执行下载
