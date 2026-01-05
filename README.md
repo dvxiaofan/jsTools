@@ -4,7 +4,7 @@
 
 ## 功能概览
 
-### 音乐管理工具 (7个)
+### 音乐管理工具 (8个)
 
 | 工具 | 功能 |
 |------|------|
@@ -15,6 +15,7 @@
 | `check_japanese.js` | 通过假名识别日语歌曲 |
 | `fix_audio_tags.js` | 检测音频标签完整性 (封面、歌词等) |
 | `hot_songs.js` | 查询歌手热门歌曲 / 地区榜单 |
+| `playlist_generator.js` | 生成 Navidrome 智能播放列表 (.nsp) |
 
 ### 照片工具 (2个)
 
@@ -32,6 +33,7 @@ npm install
 # 音乐工具示例
 node scripts/music/check_duplicates_enhanced.js "/path/to/music"
 node scripts/music/hot_songs.js --artist "周杰伦" -n 20
+node scripts/music/playlist_generator.js --name "周杰伦精选" --artist "周杰伦"
 
 # 照片工具示例
 node scripts/photo/rename_photos.js "/path/to/photos"

@@ -1,6 +1,6 @@
 # 音乐管理工具
 
-本目录包含 6 个音乐文件管理工具，用于检测重复、整理特殊版本、清理无用文件等。
+本目录包含 8 个音乐文件管理工具，用于检测重复、整理特殊版本、清理无用文件、生成播放列表等。
 
 ## 工具列表
 
@@ -116,6 +116,83 @@ node hot_songs.js --chart tw,hk,sg -n 100
 | `-n, --limit` | 返回数量 (默认 20) |
 | `-o, --output` | 输出到文件 |
 | `--json` | JSON 格式输出 |
+
+---
+
+### 7. fix_audio_tags.js - 音频标签检测
+
+检测音频文件的标签完整性，包括封面、歌词等元数据。
+
+```bash
+node fix_audio_tags.js "/path/to/music"
+```
+
+**检测项目**:
+- 内嵌封面图片
+- 内嵌歌词
+- 艺术家、专辑等基本标签
+
+---
+
+### 8. playlist_generator.js - 播放列表生成
+
+生成 Navidrome 兼容的 `.nsp` 智能播放列表。
+
+**三种使用方式**:
+
+```bash
+# 交互式模式 (推荐)
+node playlist_generator.js
+
+# 命令行模式
+node playlist_generator.js --name "周杰伦精选" --artist "周杰伦"
+
+# 批量生成
+node playlist_generator.js --auto-artist
+```
+
+**首次使用需初始化配置**:
+```bash
+node playlist_generator.js --init
+# 配置音乐库路径和歌单保存目录
+```
+
+**命令行参数**:
+| 参数 | 说明 |
+|------|------|
+| `--name, -n` | 歌单名称 |
+| `--artist, -a` | 按艺术家筛选 |
+| `--album` | 按专辑筛选 |
+| `--year, -y` | 按年份/范围筛选 (如: 2000 或 2000-2010) |
+| `--genre, -g` | 按流派筛选 |
+| `--exclude, -e` | 排除关键词 (逗号分隔) |
+| `--sort, -s` | 排序方式 (random/year/artist/album/title) |
+| `--limit, -l` | 限制歌曲数量 |
+| `--auto-artist` | 为每个艺术家自动生成歌单 |
+| `--auto-decade` | 按年代自动生成歌单 |
+
+**示例**:
+```bash
+# 周杰伦 2000-2010 年的歌，排除 Live 版本
+node playlist_generator.js --name "Jay黄金十年" \
+  --artist "周杰伦" --year 2000-2010 --exclude "Live,伴奏"
+
+# 批量为音乐库中每个艺术家生成歌单
+node playlist_generator.js --auto-artist
+```
+
+**生成的 .nsp 文件示例**:
+```json
+{
+  "name": "周杰伦精选",
+  "rules": {
+    "all": [{"contains": ["artist", "周杰伦"]}],
+    "none": [{"contains": ["title", "Live"]}]
+  },
+  "sort": "year",
+  "order": "desc"
+}
+```
 
 ---
 
