@@ -4,7 +4,7 @@
 
 ## 功能概览
 
-### 音乐管理工具 (6个)
+### 音乐管理工具 (7个)
 
 | 工具 | 功能 |
 |------|------|
@@ -13,6 +13,7 @@
 | `find_empty_dirs.js` | 检测空目录和无歌曲目录 |
 | `find_orphan_lrcs.js` | 检测没有对应音频的孤立歌词文件 |
 | `check_japanese.js` | 通过假名识别日语歌曲 |
+| `fix_audio_tags.js` | 检测音频标签完整性 (封面、歌词等) |
 | `hot_songs.js` | 查询歌手热门歌曲 / 地区榜单 |
 
 ### 照片工具 (2个)
@@ -58,8 +59,10 @@ jsTool/
 
 ```json
 {
-  "exifr": "^7.x",      // 照片 EXIF 读取
-  "piexifjs": "^1.x"    // 照片 EXIF 写入
+  "exifr": "^7.x",           // 照片 EXIF 读取
+  "piexifjs": "^1.x",        // 照片 EXIF 写入
+  "music-metadata": "^7.x",  // 音频元数据读取
+  "minimist": "^1.x"         // 命令行参数解析
 }
 ```
 
