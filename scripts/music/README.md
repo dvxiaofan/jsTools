@@ -1,6 +1,6 @@
 # 音乐管理工具
 
-本目录包含 8 个音乐文件管理工具，用于检测重复、整理特殊版本、清理无用文件、生成播放列表等。
+本目录包含 9 个音乐文件管理工具，用于检测重复、整理特殊版本、清理无用文件、生成播放列表、下载歌词等。
 
 ## 工具列表
 
@@ -193,6 +193,40 @@ node playlist_generator.js --auto-artist
   "order": "desc"
 }
 ```
+
+---
+
+### 9. download_lyrics.js - 歌词下载
+
+为缺少歌词的音频文件自动下载 `.lrc` 歌词文件。
+
+**数据源**: QQ音乐、网易云音乐
+
+```bash
+# 预览模式（默认）
+node download_lyrics.js "/path/to/music"
+
+# 执行模式，实际下载
+node download_lyrics.js "/path/to/music" --apply
+
+# 覆盖已有歌词
+node download_lyrics.js "/path/to/music" --apply --overwrite
+```
+
+**参数**:
+| 参数 | 说明 |
+|------|------|
+| `--dry-run` | 预览模式，不实际下载（默认） |
+| `--apply` | 执行模式，实际下载歌词 |
+| `--overwrite` | 覆盖已有的 .lrc 文件 |
+| `--limit N` | 只处理前 N 个文件 |
+
+**工作流程**:
+1. 扫描目录下的所有音频文件
+2. 检测没有同名 .lrc 文件的音频
+3. 解析文件名提取歌曲名和艺术家
+4. 从 QQ音乐/网易云搜索匹配歌词
+5. 下载保存为同名 .lrc 文件
 
 ---
 
