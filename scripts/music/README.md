@@ -1,6 +1,6 @@
 # 音乐管理工具
 
-本目录包含 11 个音乐文件管理工具，用于检测重复、整理特殊版本、清理无用文件、生成播放列表、下载歌词、管理封面等。
+本目录包含 12 个音乐文件管理工具，用于检测重复、整理特殊版本、清理无用文件、生成播放列表、下载歌词、管理封面等。
 
 ## 工具列表
 
@@ -326,6 +326,48 @@ node download_covers.js "/path/to/music" -y
 
 # 步骤2: 将封面嵌入 WAV 文件
 node embed_covers.js "/path/to/music" -y
+```
+
+---
+
+### 12. embed_lyrics.js - 歌词嵌入
+
+将同名 `.lrc` 歌词嵌入到 WAV 音频文件中，使用 RIFF "ID3 " 子块格式。
+
+**技术实现**: 在 WAV 文件的 ID3v2.4 标签中添加 USLT (Unsynchronized Lyrics) 帧
+
+```bash
+# 交互式模式（默认）- 检查后询问是否执行
+node embed_lyrics.js "/path/to/music"
+
+# 自动确认执行
+node embed_lyrics.js "/path/to/music" -y
+
+# 覆盖已有嵌入歌词
+node embed_lyrics.js "/path/to/music" -y --overwrite
+```
+
+**参数**:
+| 参数 | 说明 |
+|------|------|
+| `-y` | 自动确认执行 |
+| `--overwrite` | 覆盖已有的嵌入歌词 |
+| `--limit N` | 只处理前 N 个文件 |
+
+**特性**:
+- 保留已有的嵌入封面 (APIC 帧)
+- 使用 UTF-8 编码存储歌词
+- 支持 LRC 时间轴格式
+
+**完整音乐处理流程**:
+```bash
+# 步骤1: 下载外部封面和歌词
+node download_covers.js "/path/to/music" -y
+node download_lyrics.js "/path/to/music" -y
+
+# 步骤2: 将封面和歌词嵌入 WAV 文件
+node embed_covers.js "/path/to/music" -y
+node embed_lyrics.js "/path/to/music" -y
 ```
 
 ---
