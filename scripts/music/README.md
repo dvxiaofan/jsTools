@@ -1,6 +1,6 @@
 # 音乐管理工具
 
-本目录包含 9 个音乐文件管理工具，用于检测重复、整理特殊版本、清理无用文件、生成播放列表、下载歌词等。
+本目录包含 11 个音乐文件管理工具，用于检测重复、整理特殊版本、清理无用文件、生成播放列表、下载歌词、管理封面等。
 
 ## 工具列表
 
@@ -256,6 +256,77 @@ node download_lyrics.js "/path/to/music" -y --overwrite
 4. 从 QQ音乐/网易云搜索匹配歌词
 5. 显示下载计划并询问确认
 6. 下载保存为同名 .lrc 文件
+
+---
+
+### 10. download_covers.js - 封面下载
+
+为音频文件下载同名封面图片（.jpg），适用于 WAV 等不支持内嵌封面的格式，或需要外部封面的场景。
+
+**数据源**: QQ音乐、网易云音乐、iTunes
+
+```bash
+# 交互式模式（默认）- 检查后询问是否执行
+node download_covers.js "/path/to/music"
+
+# 自动确认执行
+node download_covers.js "/path/to/music" -y
+
+# 覆盖已有封面
+node download_covers.js "/path/to/music" -y --overwrite
+```
+
+**参数**:
+| 参数 | 说明 |
+|------|------|
+| `--apply` | 直接执行模式（跳过确认） |
+| `-y` | 自动确认执行 |
+| `--overwrite` | 覆盖已有的封面文件 |
+| `--limit N` | 只处理前 N 个文件 |
+
+**输出**: 为每个音频文件下载同名 `.jpg` 封面（如 `歌曲.wav` → `歌曲.jpg`）
+
+---
+
+### 11. embed_covers.js - 封面嵌入
+
+将同名 `.jpg` 封面嵌入到 WAV 音频文件中，使用 RIFF "ID3 " 子块格式。
+
+**技术实现**: 在 WAV 文件末尾添加 RIFF "ID3 " 子块，包含 ID3v2.4 标签
+
+```bash
+# 交互式模式（默认）- 检查后询问是否执行
+node embed_covers.js "/path/to/music"
+
+# 自动确认执行
+node embed_covers.js "/path/to/music" -y
+
+# 覆盖已有嵌入封面
+node embed_covers.js "/path/to/music" -y --overwrite
+```
+
+**参数**:
+| 参数 | 说明 |
+|------|------|
+| `-y` | 自动确认执行 |
+| `--overwrite` | 覆盖已有的嵌入封面 |
+| `--limit N` | 只处理前 N 个文件 |
+
+**工作流程**:
+1. 扫描目录下的所有 WAV 文件
+2. 检查是否有同名 `.jpg/.jpeg/.png` 封面文件
+3. 创建 ID3v2.4 标签（包含 APIC 帧）
+4. 将标签作为 RIFF "ID3 " 子块嵌入 WAV 文件
+5. 更新 RIFF 头大小字段
+
+**完整封面处理流程**:
+```bash
+# 步骤1: 下载外部封面
+node download_covers.js "/path/to/music" -y
+
+# 步骤2: 将封面嵌入 WAV 文件
+node embed_covers.js "/path/to/music" -y
+```
 
 ---
 
