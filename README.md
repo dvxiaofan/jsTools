@@ -4,7 +4,7 @@
 
 ## 功能概览
 
-### 音乐管理工具 (9个)
+### 音乐管理工具 (13个)
 
 | 工具 | 功能 |
 |------|------|
@@ -16,7 +16,11 @@
 | `fix_audio_tags.js` | 检测音频标签完整性 (封面、歌词等) |
 | `hot_songs.js` | 查询歌手热门歌曲 / 地区榜单 |
 | `playlist_generator.js` | 生成 Navidrome 智能播放列表 (.nsp) |
+| `playlist_from_dir.js` | 根据目录歌曲列表匹配生成播放列表 (.m3u) |
 | `download_lyrics.js` | 自动下载歌词文件 (.lrc) |
+| `download_covers.js` | 自动下载封面图片 (.jpg) |
+| `embed_lyrics.js` | 将 .lrc 歌词嵌入 WAV 文件 |
+| `embed_covers.js` | 将封面图片嵌入 WAV 文件 |
 
 ### 照片工具 (2个)
 
@@ -35,7 +39,9 @@ npm install
 node scripts/music/check_duplicates_enhanced.js "/path/to/music"
 node scripts/music/hot_songs.js --artist "周杰伦" -n 20
 node scripts/music/playlist_generator.js --name "周杰伦精选" --artist "周杰伦"
-node scripts/music/download_lyrics.js "/path/to/music" --apply
+node scripts/music/playlist_from_dir.js -s "/path/to/源目录" -l "/path/to/音乐库" -n "歌单名"
+node scripts/music/download_lyrics.js "/path/to/music" -y
+node scripts/music/download_covers.js "/path/to/music" -y
 
 # 照片工具示例
 node scripts/photo/rename_photos.js "/path/to/photos"
