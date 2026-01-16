@@ -51,6 +51,83 @@ function httpGet(url) {
 }
 
 /**
+ * 繁体转简体 (常用字映射表)
+ */
+const TRAD_TO_SIMP = {
+    '齊': '齐', '學': '学', '華': '华', '國': '国', '愛': '爱',
+    '戀': '恋', '夢': '梦', '風': '风', '雲': '云', '時': '时',
+    '間': '间', '東': '东', '車': '车', '馬': '马', '鳥': '鸟',
+    '魚': '鱼', '長': '长', '門': '门', '開': '开', '關': '关',
+    '聽': '听', '說': '说', '話': '话', '語': '语', '紅': '红',
+    '綠': '绿', '藍': '蓝', '黃': '黄', '頭': '头', '臉': '脸',
+    '體': '体', '發': '发', '無': '无', '從': '从', '來': '来',
+    '過': '过', '裡': '里', '葉': '叶', '電': '电', '腦': '脑',
+    '機': '机', '書': '书', '畫': '画', '詩': '诗', '聲': '声',
+    '響': '响', '樂': '乐', '見': '见', '親': '亲', '對': '对',
+    '這': '这', '誰': '谁', '讓': '让', '還': '还', '後': '后',
+    '隨': '随', '島': '岛', '貓': '猫', '狗': '狗', '黑': '黑',
+    '白': '白', '青': '青', '紫': '紫'
+};
+
+function toSimplified(str) {
+    return str.split('').map(c => TRAD_TO_SIMP[c] || c).join('');
+}
+
+/**
+ * 描述性后缀列表 (括号内容，用于去重)
+ */
+const DESCRIPTIVE_SUFFIXES = [
+    'live', 'remix', 'mix', 'cover', 'demo', 'acoustic', 'instrumental',
+    'dj', '伴奏', '演唱会', '现场', '版', '大合唱', '合唱', '独唱',
+    '钢琴版', '吉他版', '纯音乐', 'karaoke', 'ktv', 'radio edit',
+    'remaster', 'remastered', 'bonus', 'edit', 'extended', 'short',
+    '国语', '粤语', '日语', '英语', '翻唱'
+];
+
+/**
+ * 移除描述性后缀 (括号内容)
+ * 例如: "趁早 (2005版)" -> "趁早", "用心良苦 [Remastered]" -> "用心良苦"
+ */
+function removeDescriptiveSuffix(name) {
+    let result = name;
+    let prev;
+
+    // 循环移除所有后缀，直到没有变化
+    do {
+        prev = result;
+
+        // 移除方括号内容 [xxx]
+        result = result.replace(/\s*\[[^\]]*\]\s*$/i, '');
+
+        // 移除圆括号内容 (xxx)，包括描述性后缀和数字版本
+        // 这个正则会匹配：(描述性词汇), (数字版本), (任何文本)
+        const suffixPattern = new RegExp(
+            `\\s*[（(]\\s*([0-9a-zA-Z${DESCRIPTIVE_SUFFIXES.join('')}年版\\s\\-\\u4e00-\\u9fff]*)[^)）]*[)）]\\s*$`,
+            'i'
+        );
+        result = result.replace(suffixPattern, '');
+
+    } while (result !== prev);
+
+    return result.trim();
+}
+
+/**
+ * 生成歌曲规范化 Key (用于去重)
+ * 例如: "趁早 (2005版)" + "趁早" + "趁早 [Remastered]" -> 同一个 key
+ */
+function getSongKey(trackName) {
+    let normalized = trackName;
+    // 1. 移除描述性后缀
+    normalized = removeDescriptiveSuffix(normalized);
+    // 2. 繁体转简体
+    normalized = toSimplified(normalized);
+    // 3. 小写 + 移除空格
+    normalized = normalized.toLowerCase().replace(/\s+/g, '');
+    return normalized;
+}
+
+/**
  * 延时函数
  */
 function delay(ms) {
@@ -153,53 +230,76 @@ function printHelp() {
 // ---------------------------------------------------------
 
 /**
- * 查询单个歌手的热门歌曲
+ * 查询单个歌手的热门歌曲 (支持动态循环获取，直到去重后达到指定数量)
  */
 async function fetchArtistTopSongs(artistName, limit = 20, country = 'cn') {
-    // API 多取一些用于去重
-    const apiLimit = Math.min(limit + 30, 100);
-    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(artistName)}&country=${country}&entity=song&limit=${apiLimit}`;
+    const MAX_RETRIES = 3; // 最多请求 3 次
+    const INITIAL_BATCH = Math.min(limit + 40, 100); // 初始请求数量
 
-    try {
-        const data = await httpGet(url);
-        const response = JSON.parse(data);
+    const uniqueSongs = [];
+    const seenKeys = new Set(); // 存储规范化后的 key，用于去重
 
-        if (!response.results || response.resultCount === 0) {
-            return [];
-        }
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        // 每次请求增加获取的数量
+        const apiLimit = Math.min(INITIAL_BATCH + attempt * 30, 200);
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(artistName)}&country=${country}&entity=song&limit=${apiLimit}`;
 
-        // 过滤并去重
-        const uniqueSongs = [];
-        const seenNames = new Set();
+        try {
+            const data = await httpGet(url);
+            const response = JSON.parse(data);
 
-        for (const item of response.results) {
-            // 确保是该歌手的歌
-            const itemArtist = item.artistName.toLowerCase();
-            const searchArtist = artistName.toLowerCase();
-
-            if (itemArtist.includes(searchArtist) || searchArtist.includes(itemArtist)) {
-                const trackName = item.trackName.trim();
-                const trackKey = trackName.toLowerCase();
-
-                if (!seenNames.has(trackKey)) {
-                    seenNames.add(trackKey);
-                    uniqueSongs.push({
-                        name: trackName,
-                        artist: item.artistName,
-                        album: item.collectionName,
-                        year: item.releaseDate ? item.releaseDate.substring(0, 4) : 'Unknown'
-                    });
-                }
-
-                if (uniqueSongs.length >= limit) break;
+            if (!response.results || response.resultCount === 0) {
+                break;
             }
-        }
 
-        return uniqueSongs;
-    } catch (e) {
-        console.error(`   ❌ 查询失败: ${e.message}`);
-        return [];
+            // 遍历 API 返回的所有结果
+            for (const item of response.results) {
+                // 确保是该歌手的歌
+                const itemArtist = item.artistName.toLowerCase();
+                const searchArtist = artistName.toLowerCase();
+
+                if (itemArtist.includes(searchArtist) || searchArtist.includes(itemArtist)) {
+                    const trackName = item.trackName.trim();
+                    const trackKey = getSongKey(trackName); // 使用规范化的 key 去重
+
+                    if (!seenKeys.has(trackKey)) {
+                        seenKeys.add(trackKey);
+                        uniqueSongs.push({
+                            name: trackName,
+                            artist: item.artistName,
+                            album: item.collectionName,
+                            year: item.releaseDate ? item.releaseDate.substring(0, 4) : 'Unknown'
+                        });
+
+                        // 达到目标数量则停止
+                        if (uniqueSongs.length >= limit) {
+                            return uniqueSongs.slice(0, limit);
+                        }
+                    }
+                }
+            }
+
+            // 如果已经达到目标数量，返回
+            if (uniqueSongs.length >= limit) {
+                return uniqueSongs.slice(0, limit);
+            }
+
+            // 还需要更多歌曲，继续循环请求
+            if (attempt < MAX_RETRIES - 1) {
+                console.log(`   ⏳ 当前获取 ${uniqueSongs.length} 首歌，继续请求更多...`);
+                await delay(200);
+            }
+        } catch (e) {
+            console.error(`   ❌ 查询失败 (第 ${attempt + 1} 次): ${e.message}`);
+            if (attempt === MAX_RETRIES - 1) {
+                break;
+            }
+            await delay(200);
+        }
     }
+
+    // 返回获取到的所有歌曲（可能不足 limit）
+    return uniqueSongs;
 }
 
 // ---------------------------------------------------------
@@ -272,8 +372,7 @@ async function runArtistMode(artistName, limit, outputFile, jsonFormat) {
 
         songs.forEach((song, idx) => {
             const rank = String(idx + 1).padStart(2, ' ');
-            lines.push(`${rank}. ${song.name}`);
-            lines.push(`    💿 ${song.album} (${song.year})`);
+            lines.push(`${rank}. ${song.artist} - ${song.name}`);
         });
 
         lines.push('─'.repeat(50));
