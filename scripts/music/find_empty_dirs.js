@@ -214,7 +214,7 @@ function run() {
     console.log('📝 生成清理脚本');
     console.log('═'.repeat(50));
 
-    const scriptPath = path.join(targetDir, '_cleanup_empty_dirs.sh');
+    const scriptPath = path.join(process.cwd(), '_cleanup_empty_dirs.sh');
     const lines = [];
 
     lines.push('#!/bin/bash');

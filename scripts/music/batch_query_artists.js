@@ -22,7 +22,7 @@ const { execSync } = require('child_process');
 
 const DEFAULT_LIMIT = 30;
 const DEFAULT_OUTPUT_FILE = 'hot_songs.txt';
-const DELAY_BETWEEN_REQUESTS = 2000; // 每个请求之间的延迟（毫秒）
+const DELAY_BETWEEN_REQUESTS = 1000; // 每个请求之间的延迟（毫秒）
 const NOT_FOUND_FILE = 'not_found.txt'; // 未找到的歌手记录文件（根目录）
 
 // ---------------------------------------------------------
@@ -143,9 +143,32 @@ async function queryArtist(artistName, limit) {
             });
 
             try {
-                const jsonMatch = output.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    const data = JSON.parse(jsonMatch[0]);
+                // 改进的 JSON 解析逻辑：查找第一个 { 开头、最后一个 } 结尾的块
+                const lines = output.split('\n');
+                let jsonLines = [];
+                let inJson = false;
+                let braceCount = 0;
+
+                for (const line of lines) {
+                    if (!inJson && line.includes('{')) {
+                        inJson = true;
+                    }
+
+                    if (inJson) {
+                        jsonLines.push(line);
+                        // 简单的括号计数（容错性更好）
+                        braceCount += (line.match(/\{/g) || []).length;
+                        braceCount -= (line.match(/\}/g) || []).length;
+
+                        if (braceCount === 0 && jsonLines.length > 0) {
+                            break;  // 找到完整的 JSON 块
+                        }
+                    }
+                }
+
+                if (jsonLines.length > 0) {
+                    const jsonStr = jsonLines.join('\n');
+                    const data = JSON.parse(jsonStr);
                     resolve(data);
                 } else {
                     resolve(null);

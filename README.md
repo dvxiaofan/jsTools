@@ -1,86 +1,86 @@
-# jsTool - 工具集
+# 音乐文件处理工具集
 
-一套 Node.js 命令行工具集，用于文件批量处理和管理。
+本项目包含一系列 Node.js 脚本，用于管理和更新本地音乐文件的元数据，特别是封面图片。
 
-## 功能概览
+## 主要功能
 
-### 音乐管理工具 (13个)
+-   **自动封面更新**: 从 QQ 音乐和 iTunes 上为您的 `.mp3` 和 `.flac` 文件查找并嵌入高质量的专辑封面。
+-   **智能信息解析**: 优先从文件名中解析歌曲信息（支持 `歌手 - 歌名`、`歌名 (歌手)` 等多种格式），失败时回退到文件元数据。
+-   **批量处理**: 支持对单个目录或包含多个子目录的根目录进行批量操作。
+-   **演习模式**: 提供 `--dry-run` 模式，可以在不修改任何文件的情况下预览操作结果。
 
-| 工具 | 功能 |
-|------|------|
-| `check_duplicates_enhanced.js` | 检测重复音乐文件 (MD5 + 语义匹配) |
-| `find_special_versions.js` | 检测 Live/伴奏/序曲 等特殊版本 |
-| `find_empty_dirs.js` | 检测空目录和无歌曲目录 |
-| `find_orphan_lrcs.js` | 检测没有对应音频的孤立歌词文件 |
-| `check_japanese.js` | 通过假名识别日语歌曲 |
-| `fix_audio_tags.js` | 检测音频标签完整性 (封面、歌词等) |
-| `hot_songs.js` | 查询歌手热门歌曲 / 地区榜单 |
-| `playlist_generator.js` | 生成 Navidrome 智能播放列表 (.nsp) |
-| `playlist_from_dir.js` | 根据目录歌曲列表匹配生成播放列表 (.m3u) |
-| `download_lyrics.js` | 自动下载歌词文件 (.lrc) |
-| `download_covers.js` | 自动下载封面图片 (.jpg) |
-| `embed_lyrics.js` | 将 .lrc 歌词嵌入 WAV 文件 |
-| `embed_covers.js` | 将封面图片嵌入 WAV 文件 |
+## 环境准备
 
-### 照片工具 (2个)
-
-| 工具 | 功能 |
-|------|------|
-| `rename_photos.js` | 读取 EXIF 日期批量重命名照片 |
-| `fix_dates.js` | 从文件名提取日期修复 EXIF |
-
-## 快速开始
+在运行任何脚本之前，请确保已安装所有必需的依赖项。在项目根目录下运行：
 
 ```bash
-# 安装依赖
 npm install
-
-# 音乐工具示例
-node scripts/music/check_duplicates_enhanced.js "/path/to/music"
-node scripts/music/hot_songs.js --artist "周杰伦" -n 20
-node scripts/music/playlist_generator.js --name "周杰伦精选" --artist "周杰伦"
-node scripts/music/playlist_from_dir.js -s "/path/to/源目录" -l "/path/to/音乐库" -n "歌单名"
-node scripts/music/download_lyrics.js "/path/to/music" -y
-node scripts/music/download_covers.js "/path/to/music" -y
-
-# 照片工具示例
-node scripts/photo/rename_photos.js "/path/to/photos"
 ```
 
-## 目录结构
+## 脚本使用说明
 
-```
-jsTool/
-├── scripts/
-│   ├── music/          # 音乐管理工具
-│   └── photo/          # 照片处理工具
-├── package.json
-└── README.md
-```
+### 1. `update_cover_art.js` - 单目录封面更新
 
-## 特性
+此脚本用于处理单个文件夹内的所有支持的音频文件。
 
-- 所有工具支持命令行参数指定目标目录
-- 生成清理脚本而非直接删除，确保安全
-- 自动关联同名歌词文件 (.lrc)
-- 统一的输出格式和报告
+**用途:**
+为指定目录下的所有 `.mp3` 和 `.flac` 文件查找并嵌入封面。它会处理该目录以及其下的 `CD*` 子目录。
 
-## 依赖
-
-```json
-{
-  "exifr": "^7.x",           // 照片 EXIF 读取
-  "piexifjs": "^1.x",        // 照片 EXIF 写入
-  "music-metadata": "^7.x",  // 音频元数据读取
-  "minimist": "^1.x"         // 命令行参数解析
-}
+**命令格式:**
+```bash
+node scripts/music/update_cover_art.js <目录路径> [--dry-run]
 ```
 
-## 详细文档
+**参数说明:**
+-   `<目录路径>`: **必需**。您想要处理的音乐文件夹路径，例如 `"./华语精选/周杰伦"`。
+-   `--dry-run`: **可选**。如果使用此参数，脚本将只显示它会做什么，但不会下载图片或修改任何文件。
 
-- [音乐工具使用说明](scripts/music/README.md)
-- [照片工具使用说明](scripts/photo/README.md)
+**示例:**
+```bash
+# 对 "周杰伦" 文件夹进行实际的封面更新
+node scripts/music/update_cover_art.js "/Volumes/Music/华语精选/周杰伦"
 
-## License
+# 演习模式，查看脚本将如何处理 "林俊杰" 文件夹
+node scripts/music/update_cover_art.js "/Volumes/Music/华语精选/林俊杰" --dry-run
+```
 
-MIT
+### 2. `batch_update_covers.js` - 批量处理多个目录
+
+此脚本是 `update_cover_art.js` 的“总开关”，可以一次性处理多个子目录。
+
+**用途:**
+自动扫描一个根目录下的所有子目录，并对每个子目录执行封面更新操作。例如，您可以指定 `华语精选` 目录，它会自动处理里面的“周杰伦”、“王菲”、“陈奕迅”等所有文件夹。
+
+**命令格式:**
+```bash
+node scripts/music/batch_update_covers.js <根目录路径> [--dry-run]
+```
+
+**参数说明:**
+-   `<根目录路径>`: **必需**。包含多个歌手或专辑子目录的顶层文件夹，例如 `"/Volumes/Music/华语精选/"`。
+-   `--dry-run`: **可选**。为所有子目录的处理启用演习模式。
+
+**示例:**
+```bash
+# 对 "华语精选" 目录下的所有文件夹执行封面更新
+node scripts/music/batch_update_covers.js "/Volumes/Music/华语精选/"
+
+# 演习模式，预览对 "欧美流行" 目录下所有文件夹的处理计划
+node scripts/music/batch_update_covers.js "/Volumes/Music/欧美流行/" --dry-run
+```
+
+### 3. `hot_songs.js` - 网易云热歌榜单获取
+
+此脚本用于从网易云音乐获取指定歌单的歌曲列表。
+
+**用途:**
+连接到网易云音乐 API，拉取一个硬编码在脚本中的歌单（默认为“云音乐热歌榜”）的所有歌曲信息，并将其保存为 `hot_songs.json` 文件。
+
+**命令格式:**
+```bash
+node scripts/music/hot_songs.js
+```
+
+**注意:**
+-   此脚本目前没有命令行参数，歌单 ID 是在代码中写死的。
+-   运行后会在脚本所在目录生成一个 `hot_songs.json` 文件。
